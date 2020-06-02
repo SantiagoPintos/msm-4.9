@@ -15,6 +15,7 @@
 
 #include <linux/slimbus/slimbus.h>
 #include "core.h"
+#include <linux/notifier.h>
 
 
 /*
@@ -116,4 +117,6 @@ int wcd9xxx_rx_vport_validation(u32 port_id,
 int wcd9xxx_tx_vport_validation(u32 vtable, u32 port_id,
 				struct wcd9xxx_codec_dai_data *codec_dai,
 				u32 num_codec_dais);
+extern int register_cc_notifier_client(struct notifier_block *nb);
+extern int unregister_cc_notifier_client(struct notifier_block *nb);
 #endif /* __WCD9XXX_SLIMSLAVE_H_ */
