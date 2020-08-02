@@ -21,7 +21,6 @@
 #include <linux/module.h>
 #include <linux/input.h>
 #include <linux/of_device.h>
-#include <linux/pm_qos.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -74,7 +73,6 @@
 #define TDM_CHANNEL_MAX 8
 
 #define MSM_HIFI_ON 1
-#define MSM_LL_QOS_VALUE 300 /* time in us to ensure LPM doesn't go in C3/C4 */
 
 #define TDM_MAX_SLOTS		8
 #define TDM_SLOT_WIDTH_BITS	32
@@ -525,7 +523,6 @@ static const char *const mi2s_ch_text[] = {"One", "Two", "Three", "Four",
 					   "Five", "Six", "Seven",
 					   "Eight"};
 static const char *const hifi_text[] = {"Off", "On"};
-static const char *const qos_text[] = {"Disable", "Enable"};
 static SOC_ENUM_SINGLE_EXT_DECL(afe_loopback_tx_chs, afe_loopback_tx_ch_text);
 
 static SOC_ENUM_SINGLE_EXT_DECL(slim_0_rx_chs, slim_rx_ch_text);
@@ -593,11 +590,9 @@ static SOC_ENUM_SINGLE_EXT_DECL(mi2s_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_rx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(aux_pcm_tx_format, bit_format_text);
 static SOC_ENUM_SINGLE_EXT_DECL(hifi_function, hifi_text);
-static SOC_ENUM_SINGLE_EXT_DECL(qos_vote, qos_text);
 
 static struct platform_device *spdev;
 static int msm_hifi_control;
-static int qos_vote_status;
 
 static bool is_initial_boot;
 static bool codec_reg_done;
@@ -2932,57 +2927,6 @@ static int msm_hifi_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int msm_qos_ctl_get(struct snd_kcontrol *kcontrol,
-			   struct snd_ctl_elem_value *ucontrol)
-{
-	ucontrol->value.enumerated.item[0] = qos_vote_status;
-
-	return 0;
-}
-
-static int msm_qos_ctl_put(struct snd_kcontrol *kcontrol,
-			   struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
-	struct snd_soc_card *card = codec->component.card;
-	const char *be_name = MSM_DAILINK_NAME(LowLatency);
-	struct snd_soc_pcm_runtime *rtd;
-	struct snd_pcm_substream *substream;
-	s32 usecs;
-
-	rtd = snd_soc_get_pcm_runtime(card, be_name);
-	if (!rtd) {
-		pr_err("%s: fail to get pcm runtime for %s\n",
-			__func__, be_name);
-		return -EINVAL;
-	}
-
-	substream = rtd->pcm->streams[SNDRV_PCM_STREAM_PLAYBACK].substream;
-	if (!substream) {
-		pr_err("%s: substream is null\n", __func__);
-		return -EINVAL;
-	}
-
-	qos_vote_status = ucontrol->value.enumerated.item[0];
-	if (qos_vote_status) {
-		if (pm_qos_request_active(&substream->latency_pm_qos_req))
-			pm_qos_remove_request(&substream->latency_pm_qos_req);
-		if (!substream->runtime) {
-			pr_err("%s: runtime is null\n", __func__);
-			return -EINVAL;
-		}
-		usecs = MSM_LL_QOS_VALUE;
-		if (usecs >= 0)
-			pm_qos_add_request(&substream->latency_pm_qos_req,
-					PM_QOS_CPU_DMA_LATENCY, usecs);
-	} else {
-		if (pm_qos_request_active(&substream->latency_pm_qos_req))
-			pm_qos_remove_request(&substream->latency_pm_qos_req);
-	}
-
-	return 0;
-}
-
 static const struct snd_kcontrol_new msm_snd_controls[] = {
     SOC_ENUM_EXT("AFE_LOOPBACK_TX Channels", afe_loopback_tx_chs,
             afe_loopback_tx_ch_get, afe_loopback_tx_ch_put),
@@ -3229,8 +3173,6 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			msm_aux_pcm_tx_format_get, msm_aux_pcm_tx_format_put),
 	SOC_ENUM_EXT("HiFi Function", hifi_function, msm_hifi_get,
 			msm_hifi_put),
-	SOC_ENUM_EXT("MultiMedia5_RX QOS Vote", qos_vote, msm_qos_ctl_get,
-			msm_qos_ctl_put),
 	SOC_SINGLE_MULTI_EXT("TDM Slot Map", SND_SOC_NOPM, 0, 255, 0, 4,
 	NULL, tdm_slot_map_put),
 };
@@ -4906,30 +4848,6 @@ static struct snd_soc_ops sdm845_tdm_be_ops = {
 	.shutdown = sdm845_tdm_snd_shutdown
 };
 
-static int msm_fe_qos_prepare(struct snd_pcm_substream *substream)
-{
-	cpumask_t mask;
-
-	if (pm_qos_request_active(&substream->latency_pm_qos_req))
-		pm_qos_remove_request(&substream->latency_pm_qos_req);
-
-	cpumask_clear(&mask);
-	cpumask_set_cpu(1, &mask); /* affine to core 1 */
-	cpumask_set_cpu(2, &mask); /* affine to core 2 */
-	atomic_set(&substream->latency_pm_qos_req.cpus_affine, *cpumask_bits(&mask));
-
-	substream->latency_pm_qos_req.type = PM_QOS_REQ_AFFINE_CORES;
-
-	pm_qos_add_request(&substream->latency_pm_qos_req,
-			  PM_QOS_CPU_DMA_LATENCY,
-			  MSM_LL_QOS_VALUE);
-	return 0;
-}
-
-static struct snd_soc_ops msm_fe_qos_ops = {
-	.prepare = msm_fe_qos_prepare,
-};
-
 static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 {
 	int ret = 0;
@@ -5284,7 +5202,6 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA5,
-		.ops = &msm_fe_qos_ops,
 	},
 	{
 		.name = "Listen 1 Audio Service",
@@ -5352,7 +5269,6 @@ static struct snd_soc_dai_link msm_common_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		 /* this dainlink has playback support */
 		.id = MSM_FRONTEND_DAI_MULTIMEDIA8,
-		.ops = &msm_fe_qos_ops,
 	},
 	/* HDMI Hostless */
 	{
