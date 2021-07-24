@@ -1857,11 +1857,13 @@ msm_gem_smmu_address_space_get(struct drm_device *dev,
  * Fow now, we just hunt for all the possible gpus that we support, and add them
  * as components.
  */
+#ifndef CONFIG_QCOM_KGSL
 static const struct of_device_id msm_gpu_match[] = {
 	{ .compatible = "qcom,adreno-3xx" },
 	{ .compatible = "qcom,kgsl-3d0" },
 	{ },
 };
+#endif
 
 #ifdef CONFIG_QCOM_KGSL
 static int add_gpu_components(struct device *dev,
