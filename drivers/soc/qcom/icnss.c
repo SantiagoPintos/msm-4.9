@@ -4254,6 +4254,7 @@ static int icnss_fw_debug_open(struct inode *inode, struct file *file)
 	return single_open(file, icnss_fw_debug_show, inode->i_private);
 }
 
+#ifdef CONFIG_ICNSS_DEBUG
 static const struct file_operations icnss_fw_debug_fops = {
 	.read		= seq_read,
 	.write		= icnss_fw_debug_write,
@@ -4262,6 +4263,7 @@ static const struct file_operations icnss_fw_debug_fops = {
 	.owner		= THIS_MODULE,
 	.llseek		= seq_lseek,
 };
+#endif
 
 static ssize_t icnss_stats_write(struct file *fp, const char __user *buf,
 				    size_t count, loff_t *off)
@@ -4601,6 +4603,7 @@ static int icnss_regwrite_open(struct inode *inode, struct file *file)
 	return single_open(file, icnss_regwrite_show, inode->i_private);
 }
 
+#ifdef CONFIG_ICNSS_DEBUG
 static const struct file_operations icnss_regwrite_fops = {
 	.read		= seq_read,
 	.write          = icnss_regwrite_write,
@@ -4608,6 +4611,7 @@ static const struct file_operations icnss_regwrite_fops = {
 	.owner          = THIS_MODULE,
 	.llseek		= seq_lseek,
 };
+#endif
 
 static int icnss_regread_show(struct seq_file *s, void *data)
 {
@@ -4728,6 +4732,7 @@ static int icnss_regread_open(struct inode *inode, struct file *file)
 	return single_open(file, icnss_regread_show, inode->i_private);
 }
 
+#ifdef CONFIG_ICNSS_DEBUG
 static const struct file_operations icnss_regread_fops = {
 	.read           = seq_read,
 	.write          = icnss_regread_write,
@@ -4735,6 +4740,7 @@ static const struct file_operations icnss_regread_fops = {
 	.owner          = THIS_MODULE,
 	.llseek         = seq_lseek,
 };
+#endif
 
 #ifdef CONFIG_ICNSS_DEBUG
 static int icnss_debugfs_create(struct icnss_priv *priv)
