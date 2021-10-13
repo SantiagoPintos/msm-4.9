@@ -4183,7 +4183,7 @@ static void icnss_allow_recursive_recovery(struct device *dev)
 	icnss_pr_info("Recursive recovery allowed for WLAN\n");
 }
 
-static ssize_t icnss_fw_debug_write(struct file *fp,
+static ssize_t __maybe_unused icnss_fw_debug_write(struct file *fp,
 				    const char __user *user_buf,
 				    size_t count, loff_t *off)
 {
@@ -4249,7 +4249,7 @@ static ssize_t icnss_fw_debug_write(struct file *fp,
 	return count;
 }
 
-static int icnss_fw_debug_open(struct inode *inode, struct file *file)
+static int __maybe_unused icnss_fw_debug_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, icnss_fw_debug_show, inode->i_private);
 }
@@ -4538,7 +4538,7 @@ static int icnss_regwrite_show(struct seq_file *s, void *data)
 	return 0;
 }
 
-static ssize_t icnss_regwrite_write(struct file *fp,
+static ssize_t __maybe_unused icnss_regwrite_write(struct file *fp,
 				    const char __user *user_buf,
 				    size_t count, loff_t *off)
 {
@@ -4598,7 +4598,7 @@ static ssize_t icnss_regwrite_write(struct file *fp,
 	return count;
 }
 
-static int icnss_regwrite_open(struct inode *inode, struct file *file)
+static int __maybe_unused icnss_regwrite_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, icnss_regwrite_show, inode->i_private);
 }
@@ -4643,7 +4643,7 @@ static int icnss_regread_show(struct seq_file *s, void *data)
 	return 0;
 }
 
-static ssize_t icnss_regread_write(struct file *fp, const char __user *user_buf,
+static ssize_t __maybe_unused icnss_regread_write(struct file *fp, const char __user *user_buf,
 				size_t count, loff_t *off)
 {
 	struct icnss_priv *priv =
@@ -4727,7 +4727,7 @@ static ssize_t icnss_regread_write(struct file *fp, const char __user *user_buf,
 	return count;
 }
 
-static int icnss_regread_open(struct inode *inode, struct file *file)
+static int __maybe_unused icnss_regread_open(struct inode *inode, struct file *file)
 {
 	return single_open(file, icnss_regread_show, inode->i_private);
 }
